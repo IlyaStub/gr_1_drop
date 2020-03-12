@@ -20,9 +20,9 @@ import java.util.Iterator;
 public class MyGdxGame extends ApplicationAdapter {
     private Texture dropImage;
     private Texture bucketImage;
-    private Texture faund;
     private Sound bombSound;
     private Sound dropSound;
+    private Texture bombImage;
     private Music rainMusic;
     private OrthographicCamera camera; // для рендера изображения размером 800x480
     private SpriteBatch batch; // для отрисовки 2d-изображений, в нашем случае для Texture
@@ -30,7 +30,8 @@ public class MyGdxGame extends ApplicationAdapter {
     private Array<Rectangle> rainDrops;
     private Array<Rectangle> bombDrops;
     private long lastDropItem;
-    private long lastFaundItem;
+    private long lastDropBoom;
+
 
 
     private void spawnRainDrop() {
@@ -42,25 +43,23 @@ public class MyGdxGame extends ApplicationAdapter {
         rainDrops.add(rainDrop);
         lastDropItem = TimeUtils.nanoTime();
     }
-
-    private void spawnbombDrop() {
+    private void spawnDrop() {
         Rectangle bombDrop = new Rectangle();
         bombDrop.x = MathUtils.random(0, 800 - 64);
         bombDrop.y = 480;
         bombDrop.width = 64;
         bombDrop.height = 64;
         bombDrops.add(bombDrop);
-        lastFaundItem = TimeUtils.millis();
+        lastDropBoom = TimeUtils.millis();
     }
-
     @Override
     public void create() {
         super.create();
 
-        dropImage = new Texture(Gdx.files.internal("578df0fa9f3801560275531c.png"));
+        dropImage = new Texture(Gdx.files.internal("Без названия.png"));
         bucketImage = new Texture(Gdx.files.internal("bucket.png"));
-        faund = new Texture(Gdx.files.internal("bomb_PNG5.png"));
-        bombSound = Gdx.audio.newSound(Gdx.files.internal("drop.wav"));
+        bombImage = new Texture(Gdx.files.internal("edit-bomb.png"));
+        bombSound = Gdx.audio.newSound(Gdx.files.internal("e51240f811f5d55.mp3"));
         dropSound = Gdx.audio.newSound(Gdx.files.internal("drop.wav"));
         rainMusic = Gdx.audio.newMusic(Gdx.files.internal("rain.mp3"));
 
@@ -79,12 +78,14 @@ public class MyGdxGame extends ApplicationAdapter {
         bucket.height = 64;
 
         rainDrops = new Array<Rectangle>();
+        bombDrops = new Array<Rectangle>();
         spawnRainDrop();
+        spawnDrop();
     }
 
     @Override
     public void render() {
-        Gdx.gl.glClearColor(0, 0, 0.2f, 1);
+        Gdx.gl.glClearColor(0, 0.3f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         // обновление камеры
@@ -96,13 +97,17 @@ public class MyGdxGame extends ApplicationAdapter {
         // отрисовка ведра
         batch.begin();
         batch.draw(bucketImage, bucket.x, bucket.y);
-        for (Rectangle raindrop : rainDrops) {
+        for (Rectangle raindrop: rainDrops) {
             batch.draw(dropImage, raindrop.x, raindrop.y);
+        }
+        for (Rectangle bombDrop: bombDrops) {
+            batch.draw(bombImage, bombDrop.x, bombDrop.y);
         }
         batch.end();
 
+
         // передвижение корзины по экрану
-        if (Gdx.input.isTouched()) {
+        if(Gdx.input.isTouched()) {
             Vector3 touchPos = new Vector3();
             touchPos.set(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(touchPos); // чтобы клик по экрану
@@ -111,63 +116,58 @@ public class MyGdxGame extends ApplicationAdapter {
         }
 
         // перемещение на стрелки клавиатуры
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             bucket.x -= 200 * Gdx.graphics.getDeltaTime();
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
             bucket.x += 200 * Gdx.graphics.getDeltaTime();
         }
 
         // делаем, чтобы ведро не уходило за пределы экрана
-        if (bucket.x < 0) {
+        if(bucket.x < 0) {
             bucket.x = 0;
         }
-        if (bucket.x > 800 - 64) {
+        if(bucket.x > 800 - 64) {
             bucket.x = 800 - 64;
         }
 
         // проверяем сколько времени прошло после последней капельки, если больше 1000...,
         // то создаем новую
-        if (TimeUtils.nanoTime() - lastDropItem > 1000000000) {
+        if(TimeUtils.nanoTime() - lastDropItem > 1000000000) {
             spawnRainDrop();
         }
-        if (TimeUtils.millis() - lastFaundItem > (4000)) {
-            spawnbombDrop();
+        if(TimeUtils.millis() - lastDropBoom > (4000)) {
+            spawnDrop();
         }
-
+        for(Iterator<Rectangle> iteer = bombDrops.iterator(); iteer.hasNext(); ) {
+            Rectangle boombdrop_loop = iteer.next();
+            boombdrop_loop.y -= 150 * Gdx.graphics.getDeltaTime();
+            if(boombdrop_loop.overlaps(bucket)) {
+                bombSound.play();
+                batch.dispose();
+            }
+            if(boombdrop_loop.y + 64 < 0) {
+                iteer.remove();
+            }
+        }
         // падение капель, удаление капель, воспроизведение звука при падении в ведро
-        for (Iterator<Rectangle> iter = rainDrops.iterator(); iter.hasNext(); ) {
+        for(Iterator<Rectangle> iter = rainDrops.iterator(); iter.hasNext(); ) {
             Rectangle raindrop_loop = iter.next();
-            raindrop_loop.y -= 200 * Gdx.graphics.getDeltaTime();
+            raindrop_loop.y -= 150 * Gdx.graphics.getDeltaTime();
 
+            // как только капля попадает за нижнюю границу, она удаляется
+            if(raindrop_loop.y + 64 < 0) {
+                iter.remove();
+            }
 
-        for (Iterator<Rectangle> itere = bombDrops.iterator(); itere.hasNext(); ) {
-            Rectangle bombDrop_loop = itere.next();
-            bombDrop_loop.y -= 200 * Gdx.graphics.getDeltaTime();
-
-                // как только капля попадает за нижнюю границу, она удаляется
-                if (raindrop_loop.y + 64 < 0) {
-                    iter.remove();
-                }
-
-                if (bombDrop_loop.y + 64 < 0) {
-                    itere.remove();
-                }
-
-                // если капля пересекат ведро, то выполняется тело условия
-                if (raindrop_loop.overlaps(bucket)) {
-                    dropSound.play();
-                    iter.remove();
-                }
-
-                if (bombDrop_loop.overlaps(bucket)) {
-                    bombSound.play();
-                    itere.remove();
-                    bucketImage.dispose();
-                }
+            // если капля пересекат ведро, то выполняется тело условия
+            if(raindrop_loop.overlaps(bucket)) {
+                dropSound.play();
+                iter.remove();
             }
         }
     }
+
 
     @Override
     public void dispose() {
@@ -177,5 +177,7 @@ public class MyGdxGame extends ApplicationAdapter {
         dropSound.dispose();
         rainMusic.dispose();
         batch.dispose();
+        bombImage.dispose();
+
     }
 }
